@@ -1,17 +1,22 @@
+import os
 from flask import Flask, render_template, jsonify
 import cv2
 import numpy as np
 from util import get_parking_spots_bboxes, empty_or_not
+import threading
 
 app = Flask(__name__)
+
+# Directory of the current script
+current_dir = os.path.dirname(__file__)
 
 # Function to calculate difference between images
 def calc_diff(im1, im2):
     return np.abs(np.mean(im1) - np.mean(im2))
 
 # Paths to resources
-mask_path = 'resources/mask_1920_1080.png'
-video_path = 'resources/parking_1920_1080_loop3.mp4'
+mask_path = os.path.join(current_dir, 'resources', 'mask_1920_1080.png')
+video_path = os.path.join(current_dir, 'resources', 'parking_1920_1080_loop3.mp4')
 
 # Load mask and video
 mask = cv2.imread(mask_path, 0)
@@ -21,6 +26,7 @@ cap = cv2.VideoCapture(video_path)
 connected_components = cv2.connectedComponentsWithStats(mask, 4, cv2.CV_32S)
 spots = get_parking_spots_bboxes(connected_components)
 
+# Initialize spots status and diffs
 spots_status = [None for _ in spots]
 diffs = [None for _ in spots]
 
@@ -31,7 +37,7 @@ step = 30
 
 # Function to update parking status
 def update_parking_status():
-    global previous_frame, frame_nmr, spots_status, diffs
+    global previous_frame, frame_nmr, spots_status, diffs, cap
 
     while True:
         ret, frame = cap.read()
@@ -43,7 +49,6 @@ def update_parking_status():
                 x1, y1, w, h = spot
                 spot_crop = frame[y1:y1 + h, x1:x1 + w, :]
                 diffs[spot_indx] = calc_diff(spot_crop, previous_frame[y1:y1 + h, x1:x1 + w, :])
-            #print([diffs[j] for j in np.argsort(diffs)][::-1])
 
         if frame_nmr % step == 0:
             if previous_frame is None:
@@ -80,6 +85,8 @@ def update_parking_status():
             break
 
         frame_nmr += 1
+
+    # Release the video capture and close all OpenCV windows
     cap.release()
     cv2.destroyAllWindows()
 
@@ -97,12 +104,12 @@ def get_parking_status():
     })
 
 if __name__ == '__main__':
-    import threading
-
     # Start the video thread
     video_thread = threading.Thread(target=update_parking_status)
     video_thread.start()
 
     # Start the Flask application
-    app.run(host='0.0.0.0', port=5000, debug=True)
+    app.run(host='0.0.0.0', port=5000, debug=False)
 
+    # Ensure the video thread finishes
+    video_thread.join()

@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Parking Status</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            margin-top: 50px;
+        }
+        .status {
+            font-size: 2em;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Parking Status</h1>
+    <div class="status" id="parkingStatus">Loading...</div>
+    <script>
+        function fetchParkingStatus() {
+            fetch('/parking_status')
+                .then(response => response.json())
+                .then(data => {
+                    document.getElementById('parkingStatus').innerText = `Available spots: ${data.available_spots} / ${data.total_spots}`;
+                })
+                .catch(error => console.error('Error fetching parking status:', error));
+        }
+        setInterval(fetchParkingStatus, 2000); // Update every 2 seconds
+        fetchParkingStatus(); // Initial fetch
+    </script>
+</body>
+</html>
